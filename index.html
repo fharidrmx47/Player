@@ -722,7 +722,22 @@ document.getElementById('download').addEventListener('click', async (e) => {
       if(i === 0) await Filesystem.writeFile({ path: nama, data: data, directory: 'CACHE' });
       else await Filesystem.appendFile({ path: nama, data: data, directory: 'CACHE' });
     }
-    const { uri } = await Filesystem.getUri({ path: nama, directory: 'CACHE' });
+    let { uri } = await Filesystem.getUri({ path: nama, directory: 'CACHE' });
+
+    // Perbaiki header durasi MP4 (hasil MediaRecorder sering terbaca 3 detik)
+    if(/\.mp4$/i.test(nama) && window.Capacitor.Plugins.Remux){
+      try {
+        status.textContent = 'Memperbaiki durasi video...';
+        const namaFix = 'fix-' + nama;
+        const inPath = uri.replace('file://', '');
+        const outPath = inPath.replace(nama, namaFix);
+        await window.Capacitor.Plugins.Remux.fix({ input: inPath, output: outPath });
+        const hasil = await Filesystem.getUri({ path: namaFix, directory: 'CACHE' });
+        uri = hasil.uri;
+      } catch(errFix){
+        status.textContent = 'Perbaikan durasi gagal, memakai file asli: ' + (errFix.message || errFix);
+      }
+    }
 
     // 1) Simpan ke galeri (album "FharidPlayer")
     let tersimpan = false;
