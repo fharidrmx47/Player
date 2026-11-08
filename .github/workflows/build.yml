@@ -71,6 +71,11 @@ jobs:
                       MediaFormat f = ex.getTrackFormat(i);
                       String mime = f.getString(MediaFormat.KEY_MIME);
                       if (mime != null && (mime.startsWith("video/") || mime.startsWith("audio/"))) {
+                        if (mime.startsWith("video/")) {
+                          f.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT709);
+                          f.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED);
+                          f.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+                        }
                         map[i] = mux.addTrack(f);
                         ex.selectTrack(i);
                       } else {
