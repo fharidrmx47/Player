@@ -619,10 +619,16 @@ document.getElementById('rekam').addEventListener('click', async () => {
     }
 
     chunks = [];
-    let options = { mimeType: 'video/webm' };
-    if (!MediaRecorder.isTypeSupported('video/webm')) {
-      options = { mimeType: 'video/mp4' };
-    }
+    // Utamakan MP4 (H.264) karena WhatsApp tidak menerima WebM
+    const daftarFormat = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
+    const formatDipakai = daftarFormat.find(f => MediaRecorder.isTypeSupported(f));
+    let options = formatDipakai ? { mimeType: formatDipakai } : {};
 
     recorder = new MediaRecorder(stream, options);
     recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
