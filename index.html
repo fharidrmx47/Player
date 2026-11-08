@@ -723,8 +723,34 @@ document.getElementById('download').addEventListener('click', async (e) => {
       else await Filesystem.appendFile({ path: nama, data: data, directory: 'CACHE' });
     }
     const { uri } = await Filesystem.getUri({ path: nama, directory: 'CACHE' });
-    status.textContent = 'Pilih tujuan penyimpanan di menu yang muncul.';
-    await Share.share({ title: nama, files: [uri] });
+
+    // 1) Simpan ke galeri (album "FharidPlayer")
+    let tersimpan = false;
+    try {
+      const { Media } = window.Capacitor.Plugins;
+      const NAMA_ALBUM = 'FharidPlayer';
+      let { albums } = await Media.getAlbums();
+      let album = (albums || []).find(a => a.name === NAMA_ALBUM);
+      if(!album){
+        await Media.createAlbum({ name: NAMA_ALBUM });
+        ({ albums } = await Media.getAlbums());
+        album = (albums || []).find(a => a.name === NAMA_ALBUM);
+      }
+      await Media.saveVideo({
+        path: uri,
+        albumIdentifier: album.identifier,
+        fileName: nama.replace(/\.[^.]+$/, '')
+      });
+      tersimpan = true;
+      status.textContent = 'Video tersimpan di galeri (album ' + NAMA_ALBUM + ').';
+    } catch(errGaleri){
+      status.textContent = 'Gagal simpan ke galeri: ' + (errGaleri.message || errGaleri);
+    }
+
+    // 2) Buka menu bagikan (WhatsApp dll.)
+    try {
+      await Share.share({ title: nama, files: [uri] });
+    } catch(errShare){ /* dibatalkan, abaikan */ }
   } catch(err){
     status.textContent = 'Gagal menyimpan: ' + (err.message || err);
   }
