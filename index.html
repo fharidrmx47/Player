@@ -694,6 +694,36 @@ document.getElementById('stop').addEventListener('click', () => {
   }
 });
 
+// SIMPAN VIDEO DI APK (Capacitor): tulis ke cache lalu buka menu bagikan/simpan
+document.getElementById('download').addEventListener('click', async (e) => {
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  if(!isNative) return;
+  e.preventDefault();
+  const el = e.currentTarget;
+  const status = document.getElementById('status');
+  try {
+    const { Filesystem, Share } = window.Capacitor.Plugins;
+    status.textContent = 'Menyiapkan file video...';
+    const blob = await (await fetch(el.href)).blob();
+    const nama = el.download || 'video.webm';
+    const CH = 3 * 1024 * 1024; // kelipatan 3 supaya base64 tidak rusak
+    for(let o = 0, i = 0; o < blob.size; o += CH, i++){
+      const data = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(',')[1]);
+        r.readAsDataURL(blob.slice(o, o + CH));
+      });
+      if(i === 0) await Filesystem.writeFile({ path: nama, data: data, directory: 'CACHE' });
+      else await Filesystem.appendFile({ path: nama, data: data, directory: 'CACHE' });
+    }
+    const { uri } = await Filesystem.getUri({ path: nama, directory: 'CACHE' });
+    status.textContent = 'Pilih tujuan penyimpanan di menu yang muncul.';
+    await Share.share({ title: nama, files: [uri] });
+  } catch(err){
+    status.textContent = 'Gagal menyimpan: ' + (err.message || err);
+  }
+});
+
 update();
 </script>
 </body>
