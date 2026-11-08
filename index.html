@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fharid Rmx - Dual Version</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#080b11;
+  color:white;
+  font-family:Arial,sans-serif;
+  padding:10px 0 20px;
+}
+
+/* POP-UP LOADING EKSPORT FULL LAYAR & KUNCI TOTAL */
+.modal-ekspor{
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.modal-ekspor.aktif{
+  opacity: 1;
+  pointer-events: auto;
+}
+.modal-judul {
+  font-size: 6vw;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 20px;
+  text-align: center;
+}
+.modal-progress-track {
+  width: min(80%, 400px);
+  height: 8px;
+  background: #2a303c;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.modal-progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #ffffff;
+  transition: width 0.1s linear;
+}
+.modal-persen {
+  font-size: 4vw;
+  color: #94a3b8;
+  margin-bottom: 40px;
+}
+.modal-btn-batal {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 5vw;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 10px 30px;
+}
+.modal-info {
+  position: absolute;
+  bottom: 40px;
+  font-size: 3.2vw;
+  color: #94a3b8;
+  text-align: center;
+  padding: 0 25px;
+  line-height: 1.5;
+  max-width: 500px;
+}
+
+/* WADAH UTAMA / PREVIEW */
+.wadah{
+  position:relative;
+  width:100%;
+  margin:auto;
+  overflow:hidden;
+  background:#080b11;
+  transition: all 0.3s ease;
+}
+
+/* KELAS MODE 9:16 (VERTIKAL) */
+.wadah.mode-9-16{
+  height:min(177.78vw,100vh);
+  min-height:500px;
+  max-height:1000px;
+}
+.wadah.mode-9-16 .kerangka, .wadah.mode-9-16 .mentahan{
+  position:absolute; width:100%; height:100%; object-fit:contain; inset:0;
+}
+.wadah.mode-9-16 .kerangka{z-index:1}
+.wadah.mode-9-16 .mentahan{z-index:2;pointer-events:none}
+.wadah.mode-9-16 .album{
+  position:absolute; width:67%; aspect-ratio:1/1; top:13%; left:50%;
+  transform:translateX(-50%); overflow:hidden; border-radius:12px; z-index:3; background:#080b11;
+}
+.wadah.mode-9-16 .info-lagu{
+  position:absolute; top:52.7%; left:17.2%; width:65.6%; z-index:4; display:flex; flex-direction:column;
+}
+.wadah.mode-9-16 .judul-lagu{ font-size:4vw; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top: 5px; }
+.wadah.mode-9-16 .nama-artis{ 
+  font-size: 12px; color: #a0a0a0; width: 150%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3.5px;
+}
+.wadah.mode-9-16 .spectrum{
+  position:absolute; right:0; top:10%; width:9%; height:8vw; display:flex; align-items:center; justify-content:space-between; gap:1.5px; overflow:hidden;
+}
+.wadah.mode-9-16 .progress-lagu{
+  position:absolute; top:59.5%; left:17.2%; width:65.6%; height:1%; background:#70707089; overflow:hidden; z-index:5; border-radius:20px;
+}
+.wadah.mode-9-16 .waktu{ position:absolute; top:61.5%; color:#ffffff8c; font-size:2.7vw; font-weight:600; z-index:5; }
+.wadah.mode-9-16 .waktu-kiri{ left:17.2% }
+.wadah.mode-9-16 .waktu-kanan{ right:17.2%; text-align:right }
+.wadah.mode-9-16 .tombol-play{
+  position:absolute; left:50%; top:70%; transform:translate(-50%,-50%); width:15%; height:7%; z-index:10; background:transparent; border:0; cursor:pointer;
+}
+
+/* KELAS MODE 16:9 (LANDSCAPE) */
+.wadah.mode-16-9{
+  aspect-ratio: 16/9;
+  max-width: 960px;
+  height: auto;
+  border-radius: 12px;
+}
+.wadah.mode-16-9 .kerangka{
+  position:absolute; width:100%; height:100%; object-fit:cover; inset:0; z-index:1;
+}
+.wadah.mode-16-9 .mentahan{ display:none; }
+.wadah.mode-16-9 .album{
+  position:absolute; width:37%; aspect-ratio:1/1; top:17%; left:8.8%; overflow:hidden; border-radius:6px; z-index:3; background:#080b11;
+}
+.wadah.mode-16-9 .info-lagu{
+  position:absolute; top:15%; left:48.4%; width:40%; z-index:4; display:flex; flex-direction:column; transform: scale(0.8); transform-origin: left center;
+}
+.wadah.mode-16-9 .judul-lagu{ font-size: 12px; font-weight: 700; color: #fff; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wadah.mode-16-9 .nama-artis{ 
+  font-size: 10px; color: #a0a0a0; width: 150%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3.5px;
+}
+.wadah.mode-16-9 .spectrum{
+  position:absolute; left: 120%; top:0%; width:15%; height:8vw; display:flex; align-items:center; justify-content:space-between; gap:1.5px; overflow:hidden;
+  transform: scale(0.9); transform-origin: left center;
+}
+.wadah.mode-16-9 .progress-lagu{
+  position:absolute; top:31%; left:48.5%; width:43%; height:1.6%; background:#ffffff33; overflow:hidden; z-index:5; border-radius:20px;
+}
+.wadah.mode-16-9 .waktu{ position:absolute; top:35%; color:#ffffff71; font-size: 7px; font-weight: 800; z-index: 5; }
+.wadah.mode-16-9 .waktu-kiri{ left:48.6% }
+.wadah.mode-16-9 .waktu-kanan{ right:8.6%; text-align:right }
+.wadah.mode-16-9 .tombol-play{
+  position:absolute; left:72%; top:52.5%; transform:translate(-50%,-50%); width:8%; height:14%; z-index:10; background:transparent; border:0; cursor:pointer;
+}
+
+.album img{ display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+.spectrum span{ display:block; flex:1; min-width:2px; height:10%; background:#ffffff4c; border-radius:90px; }
+.progress-terisi{ width:0; height:100%; background:#ffffffa1; }
+#audioLagu{display:none}
+
+/* PANEL PENGATURAN */
+.panel{
+  width:min(94%,600px);
+  margin:14px auto;
+  padding:16px;
+  background:#171a21;
+  border:1px solid #454953;
+  border-radius:18px;
+  color:white;
+}
+.panel h2{ font-size:18px; margin-bottom:12px; }
+.panel label{ display:block; color:#cfd3dc; font-size:13px; margin:10px 0 6px; }
+.panel input[type=text], .panel input[type=file]{
+  width:100%; min-height:42px; border:1px solid #4b505c; border-radius:10px; padding:9px; background:#242832; color:white; font-size:14px;
+}
+.row{ display:flex; gap:8px; margin-top:12px; }
+.panel button,.unduh{
+  flex:1; display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px; border:0; border-radius:11px; background:#ffffff; color:#161616; font-weight:700; font-size:14px; cursor:pointer; text-decoration:none;
+}
+.panel button.secondary{ background:#363b46; color:white; }
+.btn-opsi, .btn-fps, .btn-aspect { background: #242832 !important; color: #cfd3dc !important; border: 1px solid #4b505c !important; font-size: 13px; }
+.btn-opsi.aktif, .btn-fps.aktif, .btn-aspect.aktif { background: #ffffff !important; color: #161616 !important; border-color: #ffffff !important; }
+.panel button:disabled{opacity:.45}
+#status{ font-size:13px; color:#ffffff; margin-top:12px; line-height:1.5; }
+#download{ display:none; margin-top:12px; }
+</style>
+</head>
+<body>
+
+<!-- POP-UP EKSPOR VIDEO FULL LAYAR & KUNCI TOTAL -->
+<div class="modal-ekspor" id="modalEkspor">
+  <div class="modal-judul">Mengekspor Video</div>
+  <div class="modal-progress-track">
+    <div class="modal-progress-bar" id="modalBar"></div>
+  </div>
+  <div class="modal-persen" id="modalPersen">0%</div>
+  <button class="modal-btn-batal" id="btnBatalEkspor">Batal</button>
+  <div class="modal-info">⚠️ Mohon untuk tidak keluar dari halaman atau mengunci layar Anda saat ekspor sedang berlangsung.</div>
+</div>
+
+<!-- TAMPILAN PEMUTAR MUSIK -->
+<div class="wadah mode-9-16" id="wadah">
+  <img class="kerangka" id="imgKerangka" src="KERANGKA.jpg" alt="Kerangka Musik">
+  <img class="mentahan" id="imgMentahan" src="PAUSE.jpg" alt="Mentahan">
+
+  <div class="album">
+    <img id="albumImg" src="album.jpg" alt="Album">
+  </div>
+
+  <div class="info-lagu">
+    <div class="judul-lagu" id="judul">Dj Fharid Rmx</div>
+    <div class="nama-artis" id="artis">Fharid Yn</div>
+    <div class="spectrum" id="spectrum">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <div class="progress-lagu">
+    <div class="progress-terisi" id="isi"></div>
+  </div>
+  <div class="waktu waktu-kiri" id="kiri">0.00</div>
+  <div class="waktu waktu-kanan" id="kanan">– 0.00</div>
+  <button class="tombol-play" id="play" aria-label="Putar atau jeda"></button>
+  <audio id="audioLagu" src="DJ.mp3" preload="auto" playsinline></audio>
+</div>
+
+<!-- PANEL PENGATURAN -->
+<section class="panel">
+<h2>Fharid Rmx - Pengaturan Dual Mode</h2>
+
+<label>Pilih Mode Tampilan (Preview)</label>
+<div class="row">
+  <button type="button" class="btn-aspect aktif" data-ratio="9:16">Vertikal (9:16)</button>
+  <button type="button" class="btn-aspect" data-ratio="16:9">Landscape (16:9)</button>
+</div>
+
+<label for="fileAudio">Pilih lagu</label>
+<input id="fileAudio" type="file" accept="audio/*">
+<label for="fileAlbum">Pilih foto album</label>
+<input id="fileAlbum" type="file" accept="image/*">
+<label for="inputJudul">Judul lagu</label>
+<input id="inputJudul" type="text" value="Dj Fharid Rmx">
+<label for="inputArtis">Nama artis</label>
+<input id="inputArtis" type="text" value="Fharid Yn">
+
+<label>Pilih Resolusi Video</label>
+<div class="row">
+  <button type="button" class="btn-opsi" data-res="sd">SD</button>
+  <button type="button" class="btn-opsi" data-res="hd">HD</button>
+  <button type="button" class="btn-opsi aktif" data-res="fhd">Full HD</button>
+</div>
+
+<label>Pilih Kecepatan FPS</label>
+<div class="row">
+  <button type="button" class="btn-fps" data-fps="25">25 FPS</button>
+  <button type="button" class="btn-fps aktif" data-fps="30">30 FPS</button>
+  <button type="button" class="btn-fps" data-fps="60">60 FPS</button>
+</div>
+
+<div class="row" style="margin-top:16px;">
+<button id="rekam">● Rekam video</button>
+<button id="stop" class="secondary" disabled>■ Berhenti</button>
+</div>
+<div id="status">Pilih mode preview, lalu klik Rekam!</div>
+<a id="download" class="unduh">Simpan hasil video MP4</a>
+</section>
+<script>
+const audio = document.getElementById('audioLagu');
+const play = document.getElementById('play');
+const kiri = document.getElementById('kiri');
+const kanan = document.getElementById('kanan');
+const isi = document.getElementById('isi');
+const bars = [...document.querySelectorAll('#spectrum span')];
+const judul = document.getElementById('judul');
+const artis = document.getElementById('artis');
+const inputJudul = document.getElementById('inputJudul');
+const inputArtis = document.getElementById('inputArtis');
+const albumImg = document.getElementById('albumImg');
+const wadah = document.getElementById('wadah');
+const imgKerangka = document.getElementById('imgKerangka');
+const imgMentahan = document.getElementById('imgMentahan');
+
+const modalEkspor = document.getElementById('modalEkspor');
+const modalBar = document.getElementById('modalBar');
+const modalPersen = document.getElementById('modalPersen');
+const btnBatalEkspor = document.getElementById('btnBatalEkspor');
+
+let currentAspect = '9:16';
+let pilihanRes = 'fhd';
+let pilihanFps = 30;
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (audio) {
+    audio.src = 'DJ.mp3';
+    audio.load();
+    update();
+  }
+});
+
+document.querySelectorAll('.btn-aspect').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn-aspect').forEach(b => b.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    currentAspect = btn.getAttribute('data-ratio');
+    
+    if(currentAspect === '9:16'){
+      wadah.className = 'wadah mode-9-16';
+      imgKerangka.src = 'KERANGKA.jpg';
+      imgMentahan.style.display = 'block';
+      imgMentahan.src = 'PAUSE.jpg';
+    } else {
+      wadah.className = 'wadah mode-16-9';
+      imgKerangka.src = 'KERANGKA19.6.jpg';
+      imgMentahan.style.display = 'none';
+    }
+  });
+});
+
+document.querySelectorAll('.btn-opsi').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn-opsi').forEach(b => b.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    pilihanRes = btn.getAttribute('data-res');
+  });
+});
+
+document.querySelectorAll('.btn-fps').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn-fps').forEach(b => b.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    pilihanFps = parseInt(btn.getAttribute('data-fps'));
+  });
+});
+
+let ac = null, analyser = null, source = null, freq = null, raf = null;
+let recorder = null, chunks = [], frameRaf = null, sedangMerekam = false;
+
+function setupAudio(){
+  if(ac) {
+    if(ac.state === 'suspended') ac.resume();
+    return;
+  }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) throw Error('Browser tidak mendukung AudioContext');
+  ac = new AC();
+  if(ac.state === 'suspended') ac.resume();
+
+  audio.crossOrigin = "anonymous";
+  analyser = ac.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -20;
+  analyser.smoothingTimeConstant = 0.5;
+  source = ac.createMediaElementSource(audio);
+  source.connect(analyser);
+  analyser.connect(ac.destination);
+  freq = new Uint8Array(analyser.frequencyBinCount);
+}
+
+function energy(lo,hi){
+  const bin = ac.sampleRate / analyser.fftSize;
+  const a = Math.max(1,Math.floor(lo/bin));
+  const b = Math.min(freq.length-1,Math.ceil(hi/bin));
+  let sum = 0, n = 0;
+  for(let i=a;i<=b;i++){ sum += freq[i]; n++; }
+  return n ? sum/n : 0;
+}
+
+function animate(){
+  if(!analyser || audio.paused || audio.ended){ stopBars(); return; }
+  analyser.getByteFrequencyData(freq);
+  const variasi = [1.0, 0.70, 0.80, 0.8, 0.60, 1.10];
+
+  bars.forEach((bar,i)=>{
+    const awal = 40 * Math.pow(2.5,i);
+    const akhir = 40 * Math.pow(2.5,i+1);
+    const v = energy(awal,akhir);
+    const tinggi = 1 + Math.min(80, v * 0.4 * variasi[i]);
+    const sekarang = parseFloat(bar.style.height) || 1;
+    const kecepatan = tinggi > sekarang ? 0.20 : 0.85;
+    const halus = sekarang + (tinggi - sekarang) * kecepatan;
+    bar.style.height = halus < 1 ? '0%' : halus + '%';
+  });
+
+  raf = requestAnimationFrame(animate);
+}
+
+function startBars(){ setupAudio(); if(ac.state !== 'running') ac.resume(); if(raf) cancelAnimationFrame(raf); animate(); }
+function stopBars(){ if(raf) cancelAnimationFrame(raf); raf = null; bars.forEach(bar => bar.style.height = '1%'); }
+
+function fmt(s){
+  s = Math.max(0, Math.floor(Number.isFinite(s) ? s : 0));
+  return Math.floor(s/60) + '.' + String(s%60).padStart(2,'0');
+}
+
+function update(){
+  const d = audio.duration;
+  const t = audio.currentTime || 0;
+  if(Number.isFinite(d) && d > 0){
+    kiri.textContent = fmt(t);
+    kanan.textContent = '– ' + fmt(d-t);
+    isi.style.width = Math.min(100, t/d*100) + '%';
+  } else {
+    kiri.textContent = fmt(t);
+    kanan.textContent = '– 0.00';
+    isi.style.width = '0%';
+  }
+}
+audio.addEventListener('timeupdate', update);
+audio.addEventListener('loadedmetadata', update);
+
+play.addEventListener('click', async () => {
+  try {
+    if(!audio.src || audio.src === '') {
+      audio.src = 'DJ.mp3';
+      audio.load();
+    }
+    setupAudio();
+    if(ac.state !== 'running') await ac.resume();
+    
+    // Hubungkan kembali suara ke speaker saat mode play biasa
+    try { analyser.connect(ac.destination); } catch(err){}
+    
+    if(audio.paused){ await audio.play(); startBars(); }
+    else { audio.pause(); }
+  } catch(e){ alert('Gagal memutar musik: ' + e.message); }
+});
+
+inputJudul.addEventListener('input', () => { judul.textContent = inputJudul.value || ' '; });
+inputArtis.addEventListener('input', () => { artis.textContent = inputArtis.value || ' '; });
+document.getElementById('fileAudio').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(!f) return;
+  audio.src = URL.createObjectURL(f);
+  audio.load();
+  update();
+});
+document.getElementById('fileAlbum').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if(!f) return;
+  albumImg.src = URL.createObjectURL(f);
+});
+
+function tungguGambar(img){
+  return new Promise((resolve) => {
+    if(img.complete && img.naturalWidth){ resolve(); return; }
+    img.onload = resolve;
+    img.onerror = resolve;
+  });
+}
+
+document.getElementById('rekam').addEventListener('click', async () => {
+  const status = document.getElementById('status');
+  const btn = document.getElementById('rekam');
+  const stopBtn = document.getElementById('stop');
+  const link = document.getElementById('download');
+
+  let stream = null, dest = null;
+
+  try {
+    if(!HTMLCanvasElement.prototype.captureStream){
+      throw Error('Browser HP tidak mendukung fitur perekaman Canvas.');
+    }
+    if(!audio.src || audio.src === '') {
+      audio.src = 'DJ.mp3';
+      audio.load();
+    }
+
+    btn.disabled = true; stopBtn.disabled = true; link.style.display = 'none';
+    status.textContent = 'Mengekspor video...';
+    modalEkspor.classList.add('aktif');
+    modalBar.style.width = '0%';
+    modalPersen.textContent = '0%';
+
+    await Promise.all([tungguGambar(imgKerangka), tungguGambar(albumImg)]);
+    if(currentAspect === '9:16') await tungguGambar(imgMentahan);
+
+    setupAudio();
+    await ac.resume();
+
+    // Putuskan jalur suara ke speaker HP agar tidak bising saat rekam, tapi tetap terekam ke file video
+    try { analyser.disconnect(ac.destination); } catch(err){}
+
+    let targetWidth = 1080, targetHeight = 1920;
+    if(currentAspect === '9:16'){
+      if(pilihanRes === 'sd'){ targetWidth = 480; targetHeight = 854; }
+      else if(pilihanRes === 'hd'){ targetWidth = 720; targetHeight = 1280; }
+      else { targetWidth = 1080; targetHeight = 1920; }
+    } else {
+      if(pilihanRes === 'sd'){ targetWidth = 854; targetHeight = 480; }
+      else if(pilihanRes === 'hd'){ targetWidth = 1280; targetHeight = 720; }
+      else { targetWidth = 1920; targetHeight = 1080; }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth; canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+
+    stream = canvas.captureStream(pilihanFps);
+    dest = ac.createMediaStreamDestination();
+    source.connect(dest);
+    dest.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+
+    function posisi(el){
+      const r = el.getBoundingClientRect();
+      const w = wadah.getBoundingClientRect();
+      return { 
+        x:(r.left-w.left)*(canvas.width/w.width), 
+        y:(r.top-w.top)*(canvas.height/w.height), 
+        w:r.width*(canvas.width/w.width), 
+        h:r.height*(canvas.height/w.height), 
+        sx:canvas.width/w.width, 
+        sy:canvas.height/w.height 
+      };
+    }
+
+    function kotakBulat(x,y,w,h,r){
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w/2, h/2)));
+      else ctx.rect(x,y,w,h);
+    }
+
+    function gambarTeks(el, teks){
+      const p = posisi(el);
+      const css = getComputedStyle(el);
+      const fontSize = parseFloat(css.fontSize) * p.sy;
+
+      ctx.save();
+      ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
+      ctx.fillStyle = css.color;
+      ctx.font = `${css.fontWeight} ${fontSize}px Arial, sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.fillText(teks || ' ', p.x, p.y);
+      ctx.restore();
+    }
+
+    function gambarWaktu(el, teks, rata='left'){
+      const p = posisi(el);
+      const css = getComputedStyle(el);
+      const fontSize = parseFloat(css.fontSize) * p.sy;
+
+      ctx.save();
+      ctx.fillStyle = css.color || '#ffffff8c';
+      ctx.font = `${css.fontWeight || '600'} ${fontSize}px Arial, sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.textAlign = rata;
+      let x = p.x;
+      if(rata === 'right') x = p.x + p.w;
+      if(rata === 'center') x = p.x + p.w/2;
+      ctx.fillText(teks || '0.00', x, p.y);
+      ctx.restore();
+    }
+
+    function renderCanvasFrame(){
+      if(!sedangMerekam) return;
+      update();
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      ctx.save();
+      ctx.filter = 'brightness(1.2) contrast(1.05)';
+
+      if(currentAspect === '9:16'){
+        ctx.drawImage(imgKerangka, 0, 0, canvas.width, canvas.height);
+        if(imgMentahan.complete && imgMentahan.naturalWidth) ctx.drawImage(imgMentahan, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.drawImage(imgKerangka, 0, 0, canvas.width, canvas.height);
+      }
+
+      if(albumImg.complete && albumImg.naturalWidth){
+        const albumBox = document.querySelector('.album');
+        const p = posisi(albumBox);
+        const radius = parseFloat(getComputedStyle(albumBox).borderRadius) * p.sx;
+        const sisi = Math.min(albumImg.naturalWidth, albumImg.naturalHeight);
+        kotakBulat(p.x, p.y, p.w, p.h, radius);
+        ctx.clip();
+        ctx.drawImage(albumImg, (albumImg.naturalWidth-sisi)/2, (albumImg.naturalHeight-sisi)/2, sisi, sisi, p.x, p.y, p.w, p.h);
+      }
+      ctx.restore();
+
+      gambarTeks(judul, judul.textContent);
+      gambarTeks(artis, artis.textContent);
+      gambarWaktu(kiri, kiri.textContent, 'left');
+      gambarWaktu(kanan, kanan.textContent, currentAspect === '16:9' ? 'right' : 'left');
+
+      bars.forEach(bar => {
+        const p = posisi(bar);
+        const css = getComputedStyle(bar);
+        ctx.fillStyle = css.backgroundColor;
+        kotakBulat(p.x, p.y, p.w, p.h, parseFloat(css.borderRadius)*p.sx);
+        ctx.fill();
+      });
+
+      const progressLagu = document.querySelector('.progress-lagu');
+      const pp = posisi(progressLagu);
+      const cssP = getComputedStyle(progressLagu);
+      ctx.save();
+      kotakBulat(pp.x, pp.y, pp.w, pp.h, parseFloat(cssP.borderRadius)*pp.sx);
+      ctx.clip();
+      ctx.fillStyle = cssP.backgroundColor;
+      ctx.fillRect(pp.x, pp.y, pp.w, pp.h);
+
+      const pf = posisi(isi);
+      ctx.fillStyle = getComputedStyle(isi).backgroundColor;
+      ctx.fillRect(pf.x, pf.y, pf.w, pf.h);
+      ctx.restore();
+
+      if(audio.duration > 0){
+        let persen = Math.min(100, Math.floor((audio.currentTime / audio.duration) * 100));
+        modalBar.style.width = persen + '%';
+        modalPersen.textContent = persen + '%';
+      }
+
+      frameRaf = requestAnimationFrame(renderCanvasFrame);
+    }
+
+    chunks = [];
+    let options = { mimeType: 'video/webm' };
+    if (!MediaRecorder.isTypeSupported('video/webm')) {
+      options = { mimeType: 'video/mp4' };
+    }
+
+    recorder = new MediaRecorder(stream, options);
+    recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+    
+    recorder.onstop = () => {
+      cancelAnimationFrame(frameRaf);
+      try { analyser.connect(ac.destination); } catch(err){}
+      modalEkspor.classList.remove('aktif');
+      
+      const mime = recorder.mimeType.includes('mp4') ? 'video/mp4' : 'video/webm';
+      const ext = recorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: mime });
+      const url = URL.createObjectURL(blob);
+      
+      link.href = url;
+      link.download = `video-${currentAspect.replace(':','-')}.${ext}`;
+      link.style.display = 'inline-flex';
+      status.textContent = 'Ekspor selesai! Silakan unduh video.';
+      btn.disabled = false; stopBtn.disabled = true;
+    };
+
+    audio.currentTime = 0;
+    sedangMerekam = true;
+    recorder.start(250);
+    renderCanvasFrame();
+    await audio.play();
+    startBars();
+    stopBtn.disabled = false;
+
+    audio.onended = () => {
+      if(sedangMerekam) {
+        sedangMerekam = false;
+        stopBars();
+        recorder.stop();
+      }
+    };
+
+  } catch(e) {
+    status.textContent = 'Gagal: ' + e.message;
+    try { analyser.connect(ac.destination); } catch(err){}
+    modalEkspor.classList.remove('aktif');
+    btn.disabled = false; stopBtn.disabled = true; sedangMerekam = false;
+  }
+});
+
+// Tombol Batal Ekspor
+btnBatalEkspor.addEventListener('click', () => {
+  if(recorder && recorder.state === 'recording') {
+    sedangMerekam = false;
+    audio.pause();
+    try { analyser.connect(ac.destination); } catch(err){}
+    stopBars();
+    recorder.stop();
+    modalEkspor.classList.remove('aktif');
+    status.textContent = 'Ekspor dibatalkan.';
+    document.getElementById('rekam').disabled = false;
+    document.getElementById('stop').disabled = true;
+  }
+});
+
+document.getElementById('stop').addEventListener('click', () => {
+  if(recorder && recorder.state === 'recording') {
+    sedangMerekam = false;
+    audio.pause();
+    try { analyser.connect(ac.destination); } catch(err){}
+    stopBars();
+    recorder.stop();
+    modalEkspor.classList.remove('aktif');
+  }
+});
+
+update();
+</script>
+</body>
+</html>
