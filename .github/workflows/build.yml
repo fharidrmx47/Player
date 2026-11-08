@@ -21,12 +21,108 @@ jobs:
           cp index.html *.jpg *.mp3 www/
           npm init -y
           npm i @capacitor/core @capacitor/cli @capacitor/android @capacitor/filesystem @capacitor/share @capacitor-community/media
-          npm i -D @capacitor/assets
           npx cap init "Fharid Rmx" com.fharid.player --web-dir=www
           npx cap add android
-          mkdir assets
-          cp icon.png assets/icon-only.png
-          npx capacitor-assets generate --android --iconBackgroundColor '#080b11' --iconBackgroundColorDark '#080b11'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+          RES=android/app/src/main/res
+          rm -rf $RES/mipmap-anydpi-v26
+          for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            D=${pair%%:*}
+            S=${pair##*:}
+            mkdir -p $RES/mipmap-$D
+            convert icon.png -resize ${S}x${S} -background '#080b11' -gravity center -extent ${S}x${S} $RES/mipmap-$D/ic_launcher.png
+            cp $RES/mipmap-$D/ic_launcher.png $RES/mipmap-$D/ic_launcher_round.png
+            cp $RES/mipmap-$D/ic_launcher.png $RES/mipmap-$D/ic_launcher_foreground.png
+          done
+          JAVA_DIR=android/app/src/main/java/com/fharid/player
+          mkdir -p $JAVA_DIR
+          cat > $JAVA_DIR/RemuxPlugin.java <<'EOF'
+          package com.fharid.player;
+
+          import android.media.MediaCodec;
+          import android.media.MediaExtractor;
+          import android.media.MediaFormat;
+          import android.media.MediaMuxer;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+          import java.nio.ByteBuffer;
+
+          @CapacitorPlugin(name = "Remux")
+          public class RemuxPlugin extends Plugin {
+            @PluginMethod
+            public void fix(final PluginCall call) {
+              final String input = call.getString("input");
+              final String output = call.getString("output");
+              new Thread(new Runnable() {
+                @Override
+                public void run() {
+                  MediaExtractor ex = null;
+                  MediaMuxer mux = null;
+                  try {
+                    ex = new MediaExtractor();
+                    ex.setDataSource(input);
+                    mux = new MediaMuxer(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                    int n = ex.getTrackCount();
+                    int[] map = new int[n];
+                    for (int i = 0; i < n; i++) {
+                      MediaFormat f = ex.getTrackFormat(i);
+                      String mime = f.getString(MediaFormat.KEY_MIME);
+                      if (mime != null && (mime.startsWith("video/") || mime.startsWith("audio/"))) {
+                        map[i] = mux.addTrack(f);
+                        ex.selectTrack(i);
+                      } else {
+                        map[i] = -1;
+                      }
+                    }
+                    mux.start();
+                    ByteBuffer buf = ByteBuffer.allocate(4 * 1024 * 1024);
+                    MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                    while (true) {
+                      int size = ex.readSampleData(buf, 0);
+                      if (size < 0) break;
+                      int track = ex.getSampleTrackIndex();
+                      info.offset = 0;
+                      info.size = size;
+                      info.presentationTimeUs = ex.getSampleTime();
+                      info.flags = (ex.getSampleFlags() & MediaExtractor.SAMPLE_FLAG_SYNC) != 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0;
+                      if (track >= 0 && map[track] >= 0) {
+                        mux.writeSampleData(map[track], buf, info);
+                      }
+                      ex.advance();
+                    }
+                    mux.stop();
+                    mux.release();
+                    mux = null;
+                    ex.release();
+                    ex = null;
+                    call.resolve();
+                  } catch (Exception e) {
+                    try { if (mux != null) mux.release(); } catch (Exception ignore) {}
+                    try { if (ex != null) ex.release(); } catch (Exception ignore) {}
+                    call.reject(String.valueOf(e.getMessage()));
+                  }
+                }
+              }).start();
+            }
+          }
+          EOF
+          cat > $JAVA_DIR/MainActivity.java <<'EOF'
+          package com.fharid.player;
+
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              registerPlugin(RemuxPlugin.class);
+              super.onCreate(savedInstanceState);
+            }
+          }
+          EOF
           npx cap sync android
       - name: Build APK
         run: |
