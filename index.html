@@ -709,11 +709,33 @@ document.getElementById('rekam').addEventListener('click', async () => {
     await Promise.all([tungguGambar(imgKerangka), tungguGambar(albumImg)]);
     if(currentAspect === '9:16') await tungguGambar(imgMentahan);
 
+    // Decode gambar dulu, supaya frame pertama tidak berat
+    await Promise.all(
+      [imgKerangka, albumImg, currentAspect === '9:16' ? imgMentahan : null]
+        .filter(Boolean)
+        .map(im => im.decode ? im.decode().catch(()=>{}) : null)
+    );
+
     setupAudio();
     await ac.resume();
-
     // Putuskan jalur suara ke speaker HP agar tidak bising saat rekam, tapi tetap terekam ke file video
     try { gainNode.disconnect(ac.destination); } catch(err){}
+
+    // Tunggu animasi pop-up selesai, lalu panaskan audio secara senyap
+    await new Promise(r => setTimeout(r, 350));
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      await audio.play();
+      await new Promise(r => setTimeout(r, 150));
+      audio.pause();
+    } catch(err){}
+    if(audio.currentTime !== 0) audio.currentTime = 0;
+    await new Promise(r => {
+      if(!audio.seeking) return r();
+      audio.addEventListener('seeked', r, { once:true });
+      setTimeout(r, 500);
+    });
 
     let targetWidth = 1080, targetHeight = 1920;
     if(currentAspect === '9:16'){
@@ -786,11 +808,17 @@ document.getElementById('rekam').addEventListener('click', async () => {
       ctx.restore();
     }
 
+    let lapisStatis = null;   // kerangka + glow + foto album (tidak berubah selama ekspor)
+    let persenTerakhir = -1;
+
     function renderCanvasFrame(){
       if(!sedangMerekam) return;
       update();
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
+      if(lapisStatis){
+        ctx.drawImage(lapisStatis, 0, 0);
+      } else {
       ctx.save();
       ctx.filter = 'none';
 
@@ -819,6 +847,13 @@ document.getElementById('rekam').addEventListener('click', async () => {
         ctx.drawImage(albumImg, (albumImg.naturalWidth-sisi)/2, (albumImg.naturalHeight-sisi)/2, sisi, sisi, p.x, p.y, p.w, p.h);
       }
       ctx.restore();
+
+      // simpan hasilnya sebagai lapisan statis
+      lapisStatis = document.createElement('canvas');
+      lapisStatis.width = canvas.width;
+      lapisStatis.height = canvas.height;
+      lapisStatis.getContext('2d').drawImage(canvas, 0, 0);
+      }
 
       gambarTeks(judul, judul.textContent);
       gambarTeks(artis, artis.textContent);
@@ -866,12 +901,24 @@ document.getElementById('rekam').addEventListener('click', async () => {
 
       if(audio.duration > 0){
         let persen = Math.min(100, Math.floor((audio.currentTime / audio.duration) * 100));
-        modalBar.style.width = persen + '%';
-        modalPersen.textContent = persen + '%';
+        if(persen !== persenTerakhir){
+          persenTerakhir = persen;
+          modalBar.style.width = persen + '%';
+          modalPersen.textContent = persen + '%';
+        }
       }
 
       frameRaf = requestAnimationFrame(renderCanvasFrame);
     }
+
+    // Pemanasan: gambar beberapa frame dulu (belum direkam)
+    sedangMerekam = true;
+    for(let i = 0; i < 8; i++){
+      renderCanvasFrame();
+      cancelAnimationFrame(frameRaf);
+      await new Promise(r => requestAnimationFrame(r));
+    }
+    sedangMerekam = false;
 
     chunks = [];
     // Utamakan MP4 (H.264) karena WhatsApp tidak menerima WebM
@@ -913,7 +960,7 @@ document.getElementById('rekam').addEventListener('click', async () => {
       btn.disabled = false; stopBtn.disabled = true;
     };
 
-    audio.currentTime = 0;
+    if(audio.currentTime !== 0) audio.currentTime = 0;
     sedangMerekam = true;
     recorder.start(250);
     renderCanvasFrame();
