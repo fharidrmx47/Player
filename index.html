@@ -235,7 +235,7 @@ body{
   </div>
 
   <div class="info-lagu">
-    <div class="judul-lagu" id="judul">Dj Fharid Rmx</div>
+    <div class="judul-lagu" id="judul">Papa Muda</div>
     <div class="nama-artis" id="artis">Fharid Rmx</div>
     <div class="spectrum" id="spectrum">
       <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -960,10 +960,17 @@ document.getElementById('rekam').addEventListener('click', async () => {
       btn.disabled = false; stopBtn.disabled = true;
     };
 
-        if(audio.currentTime !== 0) audio.currentTime = 0;
+            if(audio.currentTime !== 0) audio.currentTime = 0;
     sedangMerekam = true;
-    if(currentAspect === '16:9') recorder.start(); else recorder.start(250);
+    recorder.start(250);
     renderCanvasFrame();
+
+    // Pre-roll khusus 16:9: biarkan encoder pemanasan dulu sebelum lagu mulai
+    if(currentAspect === '16:9'){
+      await new Promise(r => setTimeout(r, 700));
+      if(!sedangMerekam) return; // kalau dibatalkan saat pre-roll
+    }
+
     await audio.play();
     startBars();
     stopBtn.disabled = false;
