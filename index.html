@@ -960,9 +960,9 @@ document.getElementById('rekam').addEventListener('click', async () => {
       btn.disabled = false; stopBtn.disabled = true;
     };
 
-    if(audio.currentTime !== 0) audio.currentTime = 0;
+        if(audio.currentTime !== 0) audio.currentTime = 0;
     sedangMerekam = true;
-    recorder.start(250);
+    if(currentAspect === '16:9') recorder.start(); else recorder.start(250);
     renderCanvasFrame();
     await audio.play();
     startBars();
