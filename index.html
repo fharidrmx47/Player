@@ -167,10 +167,35 @@ body{
 }
 .volume-track{
   position:absolute; left:0; top:35%; width:100%; height:30%;
-  background:#4f4f4f; border-radius:20px; overflow:hidden;
+  background:#505050cd; border-radius:20px; overflow:hidden;
 }
 .volume-isi{ width:100%; height:100%; background:#b8b8b8; }
 
+/* BAR VOLUME MODE 16:9 */
+.wadah.mode-16-9 .volume-area{
+  display:block; position:absolute; left:52%; width:35.2%; top:64.2%; height:10%;
+  z-index:6; touch-action:none; cursor:pointer;
+}
+.wadah.mode-16-9 .volume-track{ top:42%; height:16%; }
+
+/* IKON VOLUME 9:16 (hanya 1 yang tampil) */
+.vol-ikon{ display:none; }
+.wadah.mode-9-16 .vol-ikon.aktif{
+  display:block; position:absolute; inset:0; width:100%; height:100%;
+  object-fit:contain; z-index:2; pointer-events:none;
+}
+  /* IKON VOLUME 16:9 (hanya 1 yang tampil) */
+.vol-ikon-h{ display:none; }
+.wadah.mode-16-9 .vol-ikon-h.aktif{
+  display:block; position:absolute; inset:0; width:100%; height:100%;
+  object-fit:contain; z-index:4; pointer-events:none;
+}
+
+  /* AREA GESER DURASI LAGU (transparan, lebih tebal supaya gampang disentuh) */
+.progress-area{ position:absolute; z-index:6; touch-action:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.wadah.mode-9-16 .progress-area{ left:17.2%; width:65.6%; top:58.5%; height:4%; }
+.wadah.mode-16-9 .progress-area{ left:48.5%; width:43%; top:28.5%; height:6%; }
+  
 /* GLOW WARNA DARI FOTO ALBUM */
 .glow{ position:absolute; pointer-events:none; mix-blend-mode:screen; z-index:2; opacity:.85; }
 .wadah.mode-9-16 .glow{ left:0; top:0; width:100%; height:100%; }
@@ -228,6 +253,16 @@ body{
 <div class="wadah mode-9-16" id="wadah">
   <img class="kerangka" id="imgKerangka" src="KERANGKA.jpg" alt="Kerangka Musik">
   <img class="mentahan" id="imgMentahan" src="PAUSE.jpg" alt="Mentahan">
+  <img class="vol-ikon" id="volIkon1" src="1_VOLUME_9_16.jpg" alt="">
+<img class="vol-ikon" id="volIkon2" src="2_VOLUME_9_16.jpg" alt="">
+<img class="vol-ikon" id="volIkon3" src="3_VOLUME_9_16.jpg" alt="">
+<img class="vol-ikon" id="volIkon4" src="4_VOLUME_9_16.jpg" alt="">
+  <img class="vol-ikon-h" id="volIkonH1" src="1_16_9.jpg" alt="">
+<img class="vol-ikon-h" id="volIkonH2" src="2_16_9.jpg" alt="">
+<img class="vol-ikon-h" id="volIkonH3" src="3_16_9.jpg" alt="">
+<img class="vol-ikon-h" id="volIkonH4" src="4_16_9.jpg" alt="">
+
+  
   <canvas class="glow" id="glow"></canvas>
 
   <div class="album">
@@ -245,6 +280,7 @@ body{
   <div class="progress-lagu">
     <div class="progress-terisi" id="isi"></div>
   </div>
+  <div class="progress-area" id="progArea"></div>
   <div class="waktu waktu-kiri" id="kiri">0.00</div>
   <div class="waktu waktu-kanan" id="kanan">– 0.00</div>
 
@@ -294,7 +330,7 @@ body{
 <button id="rekam">● Rekam video</button>
 <button id="stop" class="secondary" disabled>■ Berhenti</button>
 </div>
-<div id="status">Pilih mode preview, lalu klik Rekam!</div>
+<div id="status"></div>
 <a id="download" class="unduh">Simpan hasil video MP4</a>
 <a class="btn-saluran" href="https://whatsapp.com/channel/0029Vb8aeQk72WTy3X8OQZ1R" target="_blank" rel="noopener noreferrer">📢 Info Update</a> 
 <div class="info-saluran">©Fharid Rmx</div>
@@ -540,11 +576,22 @@ let volume = 1;
 const volArea = document.getElementById('volArea');
 const volIsi = document.getElementById('volIsi');
 
+const ikonVol = [1,2,3,4].map(n => document.getElementById('volIkon'+n));
+const ikonVolH = [1,2,3,4].map(n => document.getElementById('volIkonH'+n));
+let ikonAktif = 0;
+function pilihIkon(v){
+  // bagi rata per 25%: 0-25% -> gambar 1, 25-50% -> 2, 50-75% -> 3, 75-100% -> 4
+  return Math.min(3, Math.floor(v * 4));
+}
 function setVolume(v){
   volume = Math.min(1, Math.max(0, v));
   volIsi.style.width = (volume * 100) + '%';
   if(gainNode) gainNode.gain.value = volume;
+  ikonAktif = pilihIkon(volume);
+  ikonVol.forEach((im, i) => im.classList.toggle('aktif', i === ikonAktif));
+  ikonVolH.forEach((im, i) => im.classList.toggle('aktif', i === ikonAktif));
 }
+  
 function volDariPosisi(e){
   const r = volArea.getBoundingClientRect();
   setVolume((e.clientX - r.left) / r.width);
@@ -640,6 +687,29 @@ function update(){
   }
 }
 audio.addEventListener('timeupdate', update);
+  /* ===== GESER DURASI LAGU (hanya preview, tidak mempengaruhi ekspor) ===== */
+const progArea = document.getElementById('progArea');
+let progSeret = false;
+function bolehGeserLagu(){
+  return !sedangMerekam && !modalEkspor.classList.contains('aktif');
+}
+function cariDariPosisi(e){
+  const d = audio.duration;
+  if(!Number.isFinite(d) || d <= 0) return;
+  const r = progArea.getBoundingClientRect();
+  const p = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  audio.currentTime = p * d;
+  update();
+}
+progArea.addEventListener('pointerdown', e => {
+  if(!bolehGeserLagu()) return;
+  progSeret = true;
+  try { progArea.setPointerCapture(e.pointerId); } catch(err){}
+  cariDariPosisi(e);
+});
+progArea.addEventListener('pointermove', e => { if(progSeret && bolehGeserLagu()) cariDariPosisi(e); });
+progArea.addEventListener('pointerup', () => { progSeret = false; });
+progArea.addEventListener('pointercancel', () => { progSeret = false; });
 audio.addEventListener('loadedmetadata', update);
 
 play.addEventListener('click', async () => {
@@ -882,8 +952,13 @@ document.getElementById('rekam').addEventListener('click', async () => {
       ctx.fillRect(pf.x, pf.y, pf.w, pf.h);
       ctx.restore();
 
+      {
+  const imIkon = (currentAspect === '9:16' ? ikonVol : ikonVolH)[ikonAktif];
+  if(imIkon && imIkon.complete && imIkon.naturalWidth) ctx.drawImage(imIkon, 0, 0, canvas.width, canvas.height);
+      }
+
       // Bar volume (hanya mode 9:16)
-      if(currentAspect === '9:16'){
+      {
         const volTrack = document.querySelector('.volume-track');
         const pt = posisi(volTrack);
         const cssT = getComputedStyle(volTrack);
@@ -965,8 +1040,8 @@ document.getElementById('rekam').addEventListener('click', async () => {
     recorder.start(250);
     renderCanvasFrame();
 
-    // Pre-roll khusus 16:9: biarkan encoder pemanasan dulu sebelum lagu mulai
-    if(currentAspect === '16:9'){
+        // Pre-roll (16:9 dan 9:16): biarkan encoder pemanasan dulu sebelum lagu mulai
+    {
       await new Promise(r => setTimeout(r, 700));
       if(!sedangMerekam) return; // kalau dibatalkan saat pre-roll
     }
