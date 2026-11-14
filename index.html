@@ -14,6 +14,29 @@ body{
   padding:10px 0 20px;
 }
 
+  /* PERINGATAN AWAL: APLIKASI GRATIS */
+.peringatan{
+  position:fixed; inset:0; z-index:100000;
+  background:#080b11;
+  display:flex; align-items:center; justify-content:center;
+  padding:24px;
+  opacity:1; transition:opacity .35s ease;
+}
+.peringatan.tutup{ opacity:0; pointer-events:none; }
+.peringatan-kotak{
+  width:100%; max-width:420px;
+  background:#121826; border:1px solid #2a3350; border-radius:24px;
+  padding:28px 22px; text-align:center;
+}
+.peringatan-ikon{ font-size:44px; margin-bottom:10px; }
+.peringatan-judul{ font-size:22px; font-weight:700; margin-bottom:12px; color:#fff; }
+.peringatan-teks{ font-size:15px; line-height:1.55; color:#c9d1e6; margin-bottom:22px; }
+.peringatan-teks b{ color:#fff; }
+.peringatan-tombol{
+  width:100%; padding:14px; border:none; border-radius:14px;
+  background:#fff; color:#000; font-size:17px; font-weight:700; cursor:pointer;
+}
+  
 /* POP-UP LOADING EKSPORT FULL LAYAR & KUNCI TOTAL */
 .modal-ekspor{
   position: fixed;
@@ -237,6 +260,17 @@ body{
 </style>
 </head>
 <body>
+  <div class="peringatan" id="peringatan">
+  <div class="peringatan-kotak">
+    <div class="peringatan-ikon">⚠️</div>
+    <div class="peringatan-judul">Aplikasi Ini GRATIS</div>
+    <div class="peringatan-teks">
+    <b>100% gratis</b> dan <b>tidak untuk diperjualbelikan</b>.<br>
+    Kalau kamu membeli aplikasi ini dari seseorang, berarti lu ditipu (emote batu).
+    </div>
+    <button class="peringatan-tombol" onclick="document.getElementById('peringatan').classList.add('tutup')">Lanjut</button>
+  </div>
+  </div>
 
 <!-- POP-UP EKSPOR VIDEO FULL LAYAR & KUNCI TOTAL -->
 <div class="modal-ekspor" id="modalEkspor">
