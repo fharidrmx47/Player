@@ -304,7 +304,7 @@ body{
   </div>
 
   <div class="info-lagu">
-    <div class="judul-lagu" id="judul">Papa Muda</div>
+    <div class="judul-lagu" id="judul">Dj Mashup</div>
     <div class="nama-artis" id="artis">Fharid Rmx</div>
     <div class="spectrum" id="spectrum">
       <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -854,9 +854,14 @@ document.getElementById('rekam').addEventListener('click', async () => {
 
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth; canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const KOREKSI_KECERAHAN = true;
+const FRAME_AWAL_TANPA_KOREKSI = 3;
+let nomorKirim = 0, terakhirKirim = 0;
 
-    stream = canvas.captureStream(pilihanFps);
+stream = canvas.captureStream(0);
+const trackVideo = stream.getVideoTracks()[0];
+    
     dest = ac.createMediaStreamDestination();
     // rekaman suara diambil SESUDAH volume, jadi mengikuti bar volume
     gainNode.connect(dest);
@@ -1007,7 +1012,28 @@ document.getElementById('rekam').addEventListener('click', async () => {
         ctx.fillRect(pv.x, pv.y, pv.w, pv.h);
         ctx.restore();
       }
+              const jedaFrame = 1000 / pilihanFps;
+      const nowMs = performance.now();
+      const kirimFrame = sedangMerekam && (nowMs - terakhirKirim >= jedaFrame - 3);
+      const pakaiKoreksi = KOREKSI_KECERAHAN && !(kirimFrame && nomorKirim < FRAME_AWAL_TANPA_KOREKSI);
 
+      if(pakaiKoreksi){
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = 'rgb(219,219,219)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgb(16,16,16)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
+      if(kirimFrame){
+        terakhirKirim = nowMs;
+        nomorKirim++;
+        trackVideo.requestFrame();
+      }
+      
       if(audio.duration > 0){
         let persen = Math.min(100, Math.floor((audio.currentTime / audio.duration) * 100));
         if(persen !== persenTerakhir){
