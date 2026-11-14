@@ -266,9 +266,9 @@ body{
     <div class="peringatan-judul">Aplikasi Ini GRATIS</div>
     <div class="peringatan-teks">
     <b>100% gratis</b> dan <b>tidak untuk diperjualbelikan</b>.<br>
-    Kalau kamu membeli aplikasi ini dari seseorang, berarti lu ditipu (emote batu).
+    Kalau lu membeli aplikasi ini dari seseorang, berarti lu ditipu (emote batu).
     </div>
-    <button class="peringatan-tombol" onclick="document.getElementById('peringatan').classList.add('tutup')">Lanjut</button>
+<button class="peringatan-tombol" onclick="var p=document.getElementById('peringatan'); p.classList.add('tutup'); setTimeout(function(){ p.remove(); }, 400);">Lanjut</button>
   </div>
   </div>
 
