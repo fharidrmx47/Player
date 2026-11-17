@@ -226,6 +226,14 @@ body{
 
 .album img{ display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
 .spectrum span{ display:block; flex:1; min-width:2px; height:10%; background:#ffffff42; border-radius:90px; }
+.wadah .judul-lagu.jalan{
+text-overflow:clip;
+-webkit-mask-image:linear-gradient(to right,rgba(0,0,0,calc(1 - var(--k,0))) 0%,#000 calc(var(--k,0) * 3%),#000 94%,transparent 100%);
+mask-image:linear-gradient(to right,rgba(0,0,0,calc(1 - var(--k,0))) 0%,#000 calc(var(--k,0) * 3%),#000 94%,transparent 100%);
+}
+
+.wadah .judul-lagu.jalan::after{ content:attr(data-t); padding-left:2.5em; }
+.wadah.mode-9-16 .judul-lagu{ width:86%; }
 .progress-terisi{ width:0; height:100%; background:#ffffffa1; }
 #audioLagu{display:none}
 
@@ -241,6 +249,7 @@ body{
 }
 .panel h2{ font-size:18px; margin-bottom:12px; }
 .panel label{ display:block; color:#cfd3dc; font-size:13px; margin:10px 0 6px; }
+.info-potong{ font-size:12px; color:#94a3b8; margin-top:8px; line-height:1.5; }
 .panel input[type=text], .panel input[type=file]{
   width:100%; min-height:42px; border:1px solid #4b505c; border-radius:10px; padding:9px; background:#242832; color:white; font-size:14px;
 }
@@ -304,7 +313,7 @@ body{
   </div>
 
   <div class="info-lagu">
-    <div class="judul-lagu" id="judul">Sumsang</div>
+    <div class="judul-lagu" id="judul">Great Expectation - [Fharid Rmx]</div>
     <div class="nama-artis" id="artis">Fharid Rmx</div>
     <div class="spectrum" id="spectrum">
       <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -342,9 +351,19 @@ body{
 <label for="fileAlbum">Pilih foto album</label>
 <input id="fileAlbum" type="file" accept="image/*">
 <label for="inputJudul">Judul lagu</label>
-<input id="inputJudul" type="text" value="Dj Fharid Rmx">
+<input id="inputJudul" type="text" value="Great Expectation ">
 <label for="inputArtis">Nama artis</label>
-<input id="inputArtis" type="text" value="Fharid Yn">
+<input id="inputArtis" type="text" value="Fharid Rmx">
+
+<label>Potong Audio (mulai &amp; akhir)</label>
+<div class="row" style="margin-top:0;">
+  <input id="potongMulai" type="text" inputmode="decimal" placeholder="Mulai, contoh 1.30" autocomplete="off">
+  <input id="potongAkhir" type="text" inputmode="decimal" placeholder="Akhir, contoh 2.00" autocomplete="off">
+</div>
+<div class="row">
+  <button type="button" class="secondary" id="potongReset">Reset (pakai semua)</button>
+</div>
+<div id="potongInfo" class="info-potong">Format: menit.detik (1.30 = 1 menit 30 detik) atau angka saja untuk detik (5 = detik ke-5).</div>
 
 <label>Pilih Resolusi Video</label>
 <div class="row">
@@ -559,13 +578,35 @@ function buatGlow(){
 albumImg.addEventListener('load', buatGlow);
 if(albumImg.complete) buatGlow();
 
-window.addEventListener('DOMContentLoaded', () => {
+let audioDefaultDipakai = true;   // false kalau pengguna memilih lagu sendiri
+window.addEventListener('DOMContentLoaded', async () => {
   if (audio) {
     audio.src = 'DJ.mp3';
     audio.load();
     update();
+    // Muat penuh ke memori (blob) supaya audio bisa di-seek ke titik potong dengan akurat
+    try {
+      const res = await fetch('DJ.mp3');
+      if(!res.ok) throw Error('gagal muat');
+      const blob = await res.blob();
+      if(audioDefaultDipakai && audio.paused){
+        audio.src = URL.createObjectURL(blob);
+        audio.load();
+      }
+    } catch(err){ /* tetap pakai DJ.mp3 langsung */ }
   }
 });
+
+// Geser audio ke detik tertentu dan tunggu sampai benar-benar sampai
+async function geserKe(t){
+  if(Math.abs(audio.currentTime - t) < 0.05) return;
+  audio.currentTime = t;
+  await new Promise(r => {
+    if(!audio.seeking) return r();
+    audio.addEventListener('seeked', r, { once:true });
+    setTimeout(r, 2000);
+  });
+}
   document.querySelectorAll('.btn-aspect').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.btn-aspect').forEach(b => b.classList.remove('aktif'));
@@ -583,6 +624,7 @@ window.addEventListener('DOMContentLoaded', () => {
       imgMentahan.style.display = 'none';
     }
     buatGlow();
+    aturJudul();
   });
 });
 
@@ -655,7 +697,7 @@ function setupAudio(){
   analyser = ac.createAnalyser();
   analyser.fftSize = 2048;
   analyser.minDecibels = -90;
-  analyser.maxDecibels = -20;
+  analyser.maxDecibels = -10;
   analyser.smoothingTimeConstant = 0.5;
   gainNode = ac.createGain();
   gainNode.gain.value = volume;
@@ -680,47 +722,217 @@ function energy(lo,hi){
   return n ? sum/n : 0;
 }
 
-function animate(){
-  if(!analyser || audio.paused || audio.ended){ stopBars(); return; }
-  analyser.getByteFrequencyData(freq);
-  const variasi = [1.0, 0.70, 0.80, 0.8, 0.60, 1.10];
 
-  bars.forEach((bar,i)=>{
-    const awal = 40 * Math.pow(2.5,i);
-    const akhir = 40 * Math.pow(2.5,i+1);
-    const v = energy(awal,akhir);
-    const tinggi = 1 + Math.min(80, v * 0.4 * variasi[i]);
-    const sekarang = parseFloat(bar.style.height) || 1;
-    const kecepatan = tinggi > sekarang ? 0.20 : 0.85;
-    const halus = sekarang + (tinggi - sekarang) * kecepatan;
-    bar.style.height = halus < 1 ? '0%' : halus + '%';
+// ===== SPECTRUM (6 garis) - GERAKAN MENIRU VIDEO CONTOH =====
+const SPEC = [
+  { f0:  60, f1:  200, lo:2.7, hi:24, rnd:0.15, ta:0.040, tr:0.085 },
+  { f0: 200, f1:  500, lo:3.5, hi:12.5, rnd:0.55, ta:0.040, tr:0.080 },
+  { f0: 500, f1: 1000, lo:8.0, hi:20, rnd:0.80, ta:0.040, tr:0.080 },
+  { f0:1000, f1: 2000, lo:7.0, hi:27, rnd:0.70, ta:0.050, tr:0.095 },
+  { f0:2500, f1: 4500, lo:6.0, hi:23, rnd:0.70, ta:0.050, tr:0.095 },
+  { f0:6000, f1:10000, lo:5.5, hi:17, rnd:0.35, ta:0.035, tr:0.070 }
+];
+const SPEC_MIN_PX = 2.7;
+const SPEC_MAX_PX = 24;
+const SPEC_TINGGI_BOX = 46.08;
+const SPEC_IDLE = (SPEC_MIN_PX / SPEC_TINGGI_BOX * 100);
+
+const specNilai = SPEC.map(() => SPEC_MIN_PX);
+const specSt = SPEC.map(() => ({ lo:0, hi:0, init:false, r:0, atas:0, dip:0, dipT:0, cool:0, diam:0, prev:SPEC_MIN_PX }));
+let waktuLalu = 0;
+
+function energyBand(lo,hi){
+  const bin = ac.sampleRate / analyser.fftSize;
+  const a = Math.max(1, Math.floor(lo/bin));
+  const b = Math.min(freq.length-1, Math.floor(hi/bin));
+  let sum = 0, n = 0;
+  for(let i=a;i<=b;i++){ sum += freq[i]; n++; }
+  return n ? sum/n/255 : 0;
+}
+function gauss(){ return (Math.random()+Math.random()+Math.random()+Math.random()-2) * 1.7; }
+
+function animate(now){
+  if(!analyser || audio.paused || audio.ended){ stopBars(); return; }
+  now = now || performance.now();
+  const dt = waktuLalu ? Math.min(0.1, (now - waktuLalu) / 1000) : 1/60;
+  waktuLalu = now;
+  analyser.getByteFrequencyData(freq);
+
+  bars.forEach((bar, i) => {
+    const p = SPEC[i], s = specSt[i];
+    const e = energyBand(p.f0, p.f1);
+
+    // 1) normalisasi adaptif (tidak pernah nempel di atas)
+    if(!s.init){ s.lo = e; s.hi = e + 0.08; s.init = true; }
+    if(e > s.hi) s.hi = e; else s.hi += (e - s.hi) * (1 - Math.exp(-dt / 1.2));
+    if(e < s.lo) s.lo = e; else s.lo += (e - s.lo) * (1 - Math.exp(-dt / 1.2));
+    const span = Math.max(0.06, s.hi - s.lo);
+    let n = Math.min(1, Math.max(0, (e - s.lo) / span));
+
+    // 2) gerakan acak halus
+    s.r += (-s.r / 0.22) * dt + 0.9 * Math.sqrt(dt) * gauss();
+    s.r = Math.max(-1, Math.min(1, s.r));
+    n = n * (1 - p.rnd) + (0.5 + s.r * 0.5) * p.rnd;
+    n = Math.min(1, Math.max(0, (n - 0.5) * 1.3 + 0.5));
+
+    // 3) anti-diam di atas
+    if(s.cool > 0) s.cool -= dt;
+    if(s.dip > 0){
+      s.dip -= dt;
+      n = Math.min(n, s.dipT);
+    } else {
+      if(n > 0.78) s.atas += dt; else s.atas = Math.max(0, s.atas - dt * 2);
+      if(s.atas > 0.12 + Math.random() * 0.12 && s.cool <= 0){
+        s.dip = 0.12 + Math.random() * 0.14;
+        s.dipT = 0.15 + Math.random() * 0.40;
+        s.atas = 0;
+        s.cool = 0.25 + Math.random() * 0.25;
+      }
+    }
+
+    let targetPx = p.lo + (p.hi - p.lo) * Math.min(1, Math.max(0, n));
+
+    // 4) anti-diam umum
+    if(Math.abs(specNilai[i] - s.prev) < 0.04) s.diam += dt; else s.diam = 0;
+    if(s.diam > 0.22){
+      s.r = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+      s.diam = 0;
+    }
+    s.prev = specNilai[i];
+
+    targetPx = Math.min(SPEC_MAX_PX, Math.max(SPEC_MIN_PX, targetPx));
+    const tc = targetPx > specNilai[i] ? p.ta : p.tr;
+    specNilai[i] += (targetPx - specNilai[i]) * (1 - Math.exp(-dt / tc));
+    bar.style.height = (specNilai[i] / SPEC_TINGGI_BOX * 100) + '%';
   });
 
   raf = requestAnimationFrame(animate);
 }
 
-function startBars(){ setupAudio(); if(ac.state !== 'running') ac.resume(); if(raf) cancelAnimationFrame(raf); animate(); }
-function stopBars(){ if(raf) cancelAnimationFrame(raf); raf = null; bars.forEach(bar => bar.style.height = '1%'); }
+function startBars(){
+  setupAudio(); if(ac.state !== 'running') ac.resume();
+  if(raf) cancelAnimationFrame(raf);
+  waktuLalu = 0;
+  specSt.forEach(s => { s.init = false; s.atas = 0; s.dip = 0; s.cool = 0; s.diam = 0; });
+  animate();
+}
+function stopBars(){
+  if(raf) cancelAnimationFrame(raf); raf = null;
+  bars.forEach((bar,i) => { specNilai[i] = SPEC_MIN_PX; bar.style.height = SPEC_IDLE + '%'; });
+      }
 
+  
+
+
+
+
+
+    
 function fmt(s){
   s = Math.max(0, Math.floor(Number.isFinite(s) ? s : 0));
   return Math.floor(s/60) + '.' + String(s%60).padStart(2,'0');
 }
 
-function update(){
+/* ===== POTONG AUDIO ===== */
+let trimStart = 0;       // detik mulai (pilihan pengguna)
+let trimEnd = null;      // detik akhir (null = sampai habis)
+const potongMulai = document.getElementById('potongMulai');
+const potongAkhir = document.getElementById('potongAkhir');
+const potongInfo  = document.getElementById('potongInfo');
+const potongReset = document.getElementById('potongReset');
+const INFO_FORMAT = 'Format: menit.detik (1.30 = 1 menit 30 detik) atau angka saja untuk detik (5 = detik ke-5).';
+
+// Rentang efektif yang dipakai preview & ekspor
+function rentang(){
   const d = audio.duration;
-  const t = audio.currentTime || 0;
-  if(Number.isFinite(d) && d > 0){
-    kiri.textContent = fmt(t);
-    kanan.textContent = '– ' + fmt(d-t);
-    isi.style.width = Math.min(100, t/d*100) + '%';
+  if(!Number.isFinite(d) || d <= 0) return { s:0, e:0 };
+  let s = Math.min(Math.max(0, trimStart), d);
+  let e = (trimEnd == null) ? d : Math.min(trimEnd, d);
+  if(e - s < 0.5){ s = 0; e = d; }
+  return { s, e };
+}
+
+// "1.30" / "1:30" -> 90 detik, "5" -> 5 detik
+function parseWaktu(str){
+  str = (str || '').trim().replace(',', '.');
+  if(!str) return null;
+  let parts = str.split(/[:.]/);
+  if(parts.length > 2 || parts.some(p => p === '' || !/^\d+$/.test(p))) return NaN;
+  if(parts.length === 1) return parseInt(parts[0], 10);
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
+function infoPotong(pesan){
+  if(pesan){ potongInfo.textContent = pesan; return; }
+  const { s, e } = rentang();
+  if(e > 0 && (trimStart > 0 || trimEnd != null)){
+    potongInfo.textContent = 'Bagian terpilih: ' + fmt(s) + ' – ' + fmt(e) + ' (durasi hasil ' + fmt(e - s) + ')';
   } else {
-    kiri.textContent = fmt(t);
+    potongInfo.textContent = INFO_FORMAT;
+  }
+}
+
+function terapkanPotong(){
+  const d = audio.duration;
+  const a = parseWaktu(potongMulai.value);
+  const b = parseWaktu(potongAkhir.value);
+  if(Number.isNaN(a) || Number.isNaN(b)){
+    infoPotong('Format waktu salah. Contoh: 1.30 atau 5');
+    return;
+  }
+  const s = a == null ? 0 : a;
+  let e = b;
+  if(Number.isFinite(d) && d > 0){
+    if(s >= d){ infoPotong('Waktu mulai melebihi durasi lagu (' + fmt(d) + ').'); return; }
+    if(e != null && e > d) e = d;
+  }
+  if(e != null && e - s < 1){ infoPotong('Waktu akhir harus lebih besar dari waktu mulai (minimal 1 detik).'); return; }
+  trimStart = s;
+  trimEnd = e;
+  if(!audio.paused) audio.pause();
+  audio.currentTime = s;
+  update();
+  infoPotong();
+}
+potongMulai.addEventListener('change', terapkanPotong);
+potongAkhir.addEventListener('change', terapkanPotong);
+potongReset.addEventListener('click', () => {
+  potongMulai.value = ''; potongAkhir.value = '';
+  trimStart = 0; trimEnd = null;
+  if(!audio.paused) audio.pause();
+  audio.currentTime = 0;
+  update(); infoPotong();
+});
+
+function update(){
+  const { s, e } = rentang();
+  const t = audio.currentTime || 0;
+  if(e > s){
+    const rel = Math.min(Math.max(t - s, 0), e - s);
+    kiri.textContent = fmt(rel);
+    kanan.textContent = '– ' + fmt(e - s - rel);
+    isi.style.width = Math.min(100, rel / (e - s) * 100) + '%';
+  } else {
+    kiri.textContent = fmt(0);
     kanan.textContent = '– 0.00';
     isi.style.width = '0%';
   }
 }
 audio.addEventListener('timeupdate', update);
+
+// Jaga batas akhir potongan saat preview (ekspor dijaga di renderCanvasFrame)
+function jagaBatas(){
+  if(!audio.paused && !sedangMerekam){
+    const { s, e } = rentang();
+    if(e > 0 && audio.currentTime >= e){
+      audio.pause();
+      audio.currentTime = s;
+      update();
+    }
+  }
+  requestAnimationFrame(jagaBatas);
+}
+requestAnimationFrame(jagaBatas);
   /* ===== GESER DURASI LAGU (hanya preview, tidak mempengaruhi ekspor) ===== */
 const progArea = document.getElementById('progArea');
 let progSeret = false;
@@ -728,11 +940,11 @@ function bolehGeserLagu(){
   return !sedangMerekam && !modalEkspor.classList.contains('aktif');
 }
 function cariDariPosisi(e){
-  const d = audio.duration;
-  if(!Number.isFinite(d) || d <= 0) return;
+  const { s, e: akhir } = rentang();
+  if(akhir <= s) return;
   const r = progArea.getBoundingClientRect();
   const p = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-  audio.currentTime = p * d;
+  audio.currentTime = Math.min(s + p * (akhir - s), akhir - 0.05);
   update();
 }
 progArea.addEventListener('pointerdown', e => {
@@ -744,7 +956,7 @@ progArea.addEventListener('pointerdown', e => {
 progArea.addEventListener('pointermove', e => { if(progSeret && bolehGeserLagu()) cariDariPosisi(e); });
 progArea.addEventListener('pointerup', () => { progSeret = false; });
 progArea.addEventListener('pointercancel', () => { progSeret = false; });
-audio.addEventListener('loadedmetadata', update);
+audio.addEventListener('loadedmetadata', () => { update(); infoPotong(); });
 
 play.addEventListener('click', async () => {
   try {
@@ -758,19 +970,67 @@ play.addEventListener('click', async () => {
     // Hubungkan kembali suara ke speaker saat mode play biasa
     sambungSpeaker();
     
-    if(audio.paused){ await audio.play(); startBars(); }
+    if(audio.paused){
+      const { s, e } = rentang();
+      if(e > 0 && (audio.currentTime < s - 0.05 || audio.currentTime >= e - 0.05)) await geserKe(s);
+      await audio.play(); startBars();
+    }
     else { audio.pause(); }
   } catch(e){ alert('Gagal memutar musik: ' + e.message); }
 });
 
-inputJudul.addEventListener('input', () => { judul.textContent = inputJudul.value || ' '; });
+inputJudul.addEventListener('input', () => { judul.textContent = inputJudul.value || ' '; aturJudul(); });
+
+let judulJalan = false, judulJarak = 0, judulFrak = 0, mulaiJudul = performance.now();
+const JEDA_JUDUL = 1500;       // diam dulu (milidetik)
+const KECEPATAN_JUDUL = 45;    // kecepatan jalan (px per detik)
+
+function aturJudul(){
+  judul.classList.remove('jalan');
+  judul.scrollLeft = 0;
+  judul.dataset.t = judul.textContent;
+  judulJalan = false;
+  if(judul.scrollWidth > judul.clientWidth + 1){
+    const gap = parseFloat(getComputedStyle(judul).fontSize) * 2.5;
+    judulJarak = judul.scrollWidth + gap;
+    judulJalan = true;
+    judul.classList.add('jalan');
+  }
+  mulaiJudul = performance.now();
+}
+function resetJudul(){
+  mulaiJudul = performance.now();
+  judulFrak = 0;
+  judul.scrollLeft = 0;
+  judul.style.setProperty('--k', 0);
+}
+function putarJudul(now){
+  if(judulJalan){
+    const siklus = JEDA_JUDUL + judulJarak / KECEPATAN_JUDUL * 1000;
+    const t = (now - mulaiJudul) % siklus;
+    judulFrak = t < JEDA_JUDUL ? 0 : (t - JEDA_JUDUL) / (siklus - JEDA_JUDUL);
+    judul.scrollLeft = judulFrak * judulJarak;
+    judul.style.setProperty('--k', Math.max(0, Math.min(1, judul.scrollLeft / 30, (judulJarak - judul.scrollLeft) / 30)));
+  } else {
+    judulFrak = 0;
+  }
+  requestAnimationFrame(putarJudul);
+}
+
+window.addEventListener('load', aturJudul);
+window.addEventListener('resize', aturJudul);
+if(document.fonts) document.fonts.ready.then(aturJudul);
+requestAnimationFrame(putarJudul);
 inputArtis.addEventListener('input', () => { artis.textContent = inputArtis.value || ' '; });
 document.getElementById('fileAudio').addEventListener('change', e => {
   const f = e.target.files[0];
   if(!f) return;
+  audioDefaultDipakai = false;
   audio.src = URL.createObjectURL(f);
   audio.load();
-  update();
+  potongMulai.value = ''; potongAkhir.value = '';
+  trimStart = 0; trimEnd = null;
+  update(); infoPotong();
 });
 document.getElementById('fileAlbum').addEventListener('change', e => {
   const f = e.target.files[0];
@@ -827,14 +1087,16 @@ document.getElementById('rekam').addEventListener('click', async () => {
 
     // Tunggu animasi pop-up selesai, lalu panaskan audio secara senyap
     await new Promise(r => setTimeout(r, 350));
+    const awalPotong = rentang().s;
+    const akhirPotong = rentang().e;
     try {
       audio.pause();
-      audio.currentTime = 0;
+      audio.currentTime = awalPotong;
       await audio.play();
       await new Promise(r => setTimeout(r, 150));
       audio.pause();
     } catch(err){}
-    if(audio.currentTime !== 0) audio.currentTime = 0;
+    if(Math.abs(audio.currentTime - awalPotong) > 0.01) audio.currentTime = awalPotong;
     await new Promise(r => {
       if(!audio.seeking) return r();
       audio.addEventListener('seeked', r, { once:true });
@@ -890,13 +1152,29 @@ const trackVideo = stream.getVideoTracks()[0];
       const p = posisi(el);
       const css = getComputedStyle(el);
       const fontSize = parseFloat(css.fontSize) * p.sy;
+      const jalan = (el === judul && judulJalan);
 
       ctx.save();
       ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
-      ctx.fillStyle = css.color;
       ctx.font = `${css.fontWeight} ${fontSize}px Arial, sans-serif`;
       ctx.textBaseline = 'top';
-      ctx.fillText(teks || ' ', p.x, p.y);
+      if(jalan){
+      const jarak = ctx.measureText(teks).width + fontSize * 2.5;
+        const x = p.x - judulFrak * jarak;
+        const pudar = ctx.createLinearGradient(p.x, 0, p.x + p.w, 0);
+                const geser = judulFrak * jarak;
+        const k = Math.max(0, Math.min(1, geser / (30 * p.sx), (jarak - geser) / (30 * p.sx)));
+        pudar.addColorStop(0, `rgba(255,255,255,${1 - k})`);
+        pudar.addColorStop(0.03 * k, 'rgba(255,255,255,1)');
+        pudar.addColorStop(0.94, 'rgba(255,255,255,1)');
+        pudar.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = pudar;
+        ctx.fillText(teks, x, p.y);
+        ctx.fillText(teks, x + jarak, p.y);
+      } else {
+        ctx.fillStyle = css.color;
+        ctx.fillText(teks || ' ', p.x, p.y);
+      }
       ctx.restore();
     }
 
@@ -1034,8 +1312,17 @@ const trackVideo = stream.getVideoTracks()[0];
         trackVideo.requestFrame();
       }
       
-      if(audio.duration > 0){
-        let persen = Math.min(100, Math.floor((audio.currentTime / audio.duration) * 100));
+      // Berhenti otomatis saat mencapai titik akhir potongan
+      if(!audio.paused && recorder && recorder.state === 'recording' && audio.currentTime >= akhirPotong - 0.02){
+        sedangMerekam = false;
+        audio.pause();
+        stopBars();
+        recorder.stop();
+        return;
+      }
+
+      if(akhirPotong > awalPotong){
+        let persen = Math.min(100, Math.max(0, Math.floor(((audio.currentTime - awalPotong) / (akhirPotong - awalPotong)) * 100)));
         if(persen !== persenTerakhir){
           persenTerakhir = persen;
           modalBar.style.width = persen + '%';
@@ -1047,6 +1334,7 @@ const trackVideo = stream.getVideoTracks()[0];
     }
 
     // Pemanasan: gambar beberapa frame dulu (belum direkam)
+    resetJudul();
     sedangMerekam = true;
     for(let i = 0; i < 8; i++){
       renderCanvasFrame();
@@ -1095,8 +1383,9 @@ const trackVideo = stream.getVideoTracks()[0];
       btn.disabled = false; stopBtn.disabled = true;
     };
 
-            if(audio.currentTime !== 0) audio.currentTime = 0;
+    if(Math.abs(audio.currentTime - awalPotong) > 0.01) audio.currentTime = awalPotong;
     sedangMerekam = true;
+    resetJudul();
     recorder.start(250);
     renderCanvasFrame();
 
@@ -1106,6 +1395,7 @@ const trackVideo = stream.getVideoTracks()[0];
       if(!sedangMerekam) return; // kalau dibatalkan saat pre-roll
     }
 
+        resetJudul();
     await audio.play();
     startBars();
     stopBtn.disabled = false;
